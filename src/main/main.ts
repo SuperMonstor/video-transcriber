@@ -1,8 +1,9 @@
 import { join } from "node:path";
 import { app, BrowserWindow, shell } from "electron";
 import { registerIpc } from "./ipc";
+import { setupUpdater } from "./updater";
 
-function createWindow(): void {
+function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
     width: 980,
     height: 720,
@@ -30,11 +31,14 @@ function createWindow(): void {
   } else {
     win.loadFile(join(__dirname, "../renderer/index.html"));
   }
+
+  return win;
 }
 
 app.whenReady().then(() => {
   registerIpc();
-  createWindow();
+  const win = createWindow();
+  setupUpdater(win);
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

@@ -109,6 +109,27 @@ button.danger {
   margin-left: auto;
 }
 
+.update-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 8px 16px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+}
+.update-banner button {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: transparent;
+  color: #fff;
+  padding: 4px 12px;
+}
+.update-banner button:hover {
+  background: rgba(255, 255, 255, 0.28);
+  border-color: transparent;
+}
+
 .setup-btn {
   margin: 24px 0 0;
 }

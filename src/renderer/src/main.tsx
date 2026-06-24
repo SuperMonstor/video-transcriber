@@ -4,6 +4,7 @@ import ReactDOM from "react-dom/client";
 
 import { App } from "./App";
 import { Setup } from "./Setup";
+import { UpdateBanner } from "./UpdateBanner";
 import "./styles.css";
 
 function Root(): JSX.Element {
@@ -13,14 +14,20 @@ function Root(): JSX.Element {
     window.transcriber.setupStatus().then((s) => setReady(s.ready));
   }, []);
 
-  if (ready === null) {
-    return (
-      <main className="app">
-        <p className="muted">Loading…</p>
-      </main>
-    );
-  }
-  return ready ? <App /> : <Setup onReady={() => setReady(true)} />;
+  return (
+    <>
+      <UpdateBanner />
+      {ready === null ? (
+        <main className="app">
+          <p className="muted">Loading…</p>
+        </main>
+      ) : ready ? (
+        <App />
+      ) : (
+        <Setup onReady={() => setReady(true)} />
+      )}
+    </>
+  );
 }
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(

@@ -8,6 +8,7 @@ import {
   type SetupProgressMsg,
   type SetupStatus,
   type StartArgs,
+  type UpdateStatus,
 } from "../shared/ipc";
 
 const api = {
@@ -39,6 +40,14 @@ const api = {
     ipcRenderer.on(CH.setupProgress, listener);
     return () => ipcRenderer.removeListener(CH.setupProgress, listener);
   },
+
+  // ---- auto-update ----
+  onUpdateStatus: (cb: (msg: UpdateStatus) => void): (() => void) => {
+    const listener = (_e: unknown, msg: UpdateStatus): void => cb(msg);
+    ipcRenderer.on(CH.updateStatus, listener);
+    return () => ipcRenderer.removeListener(CH.updateStatus, listener);
+  },
+  restartToUpdate: (): Promise<void> => ipcRenderer.invoke(CH.updateInstall),
 };
 
 contextBridge.exposeInMainWorld("transcriber", api);

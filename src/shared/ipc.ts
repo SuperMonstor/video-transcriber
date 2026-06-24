@@ -10,6 +10,8 @@ export const CH = {
   setupStatus: "setup:status",
   setupDownload: "setup:download",
   setupProgress: "setup:progress",
+  updateStatus: "update:status",
+  updateInstall: "update:install",
 } as const;
 
 export type StartArgs = { videoPath: string; options: TranscribeOptions };
@@ -28,3 +30,12 @@ export type SetupProgressMsg = {
   phase: "downloading" | "done" | "error";
   message?: string;
 };
+
+/** Auto-update lifecycle, pushed from main to renderer. */
+export type UpdateStatus =
+  | { state: "checking" }
+  | { state: "none" }
+  | { state: "available"; version: string }
+  | { state: "downloading"; percent: number }
+  | { state: "downloaded"; version: string }
+  | { state: "error"; message: string };
