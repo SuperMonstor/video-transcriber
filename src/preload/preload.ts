@@ -1,10 +1,28 @@
-import { contextBridge } from "electron";
+import { contextBridge, ipcRenderer, webUtils } from "electron";
 
-// The renderer-facing API is intentionally tiny. It grows in Task #3 when the
-// engine is wired in (transcribe, onProgress, cancel, export). For the scaffold
-// we just expose a version string so we can confirm the bridge works.
+import type { TranscribeOptions } from "../lib/engine/types";
+import { CH, type ProgressMsg, type SaveArgs, type StartArgs } from "../shared/ipc";
+
 const api = {
-  version: process.versions.electron,
+  /** Resolve the absolute path of a dropped/picked File (Electron 32+). */
+  pathForFile: (file: File): string => webUtils.getPathForFile(file),
+
+  /** Start a transcription job. Progress arrives via onProgress. */
+  start: (videoPath: string, options: TranscribeOptions): Promise<{ jobId: string }> =>
+    ipcRenderer.invoke(CH.start, { videoPath, options } satisfies StartArgs),
+
+  cancel: (jobId: string): Promise<void> => ipcRenderer.invoke(CH.cancel, jobId),
+
+  /** Show a save dialog and write `text`. Returns the path, or null if canceled. */
+  save: (text: string, defaultName: string): Promise<string | null> =>
+    ipcRenderer.invoke(CH.save, { text, defaultName } satisfies SaveArgs),
+
+  /** Subscribe to progress events. Returns an unsubscribe function. */
+  onProgress: (cb: (msg: ProgressMsg) => void): (() => void) => {
+    const listener = (_e: unknown, msg: ProgressMsg): void => cb(msg);
+    ipcRenderer.on(CH.progress, listener);
+    return () => ipcRenderer.removeListener(CH.progress, listener);
+  },
 };
 
 contextBridge.exposeInMainWorld("transcriber", api);
