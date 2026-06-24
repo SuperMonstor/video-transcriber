@@ -1,0 +1,18 @@
+node_modules/
+out/
+dist/
+release/
+*.log
+
+# whisper + VAD models are large and downloaded on first run, never committed
+models/
+resources/bin/
+
+# local scratch / test media
+scratch/
+*.wav
+*.mp4
+*.mov
+*.mkv
+
+.DS_Store
