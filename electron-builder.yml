@@ -15,8 +15,12 @@ asar: true
 
 mac:
   category: public.app-category.productivity
+  # zip is required alongside dmg so electron-updater has something to download
+  # and electron-builder emits latest-mac.yml.
   target:
     - target: dmg
+      arch: arm64
+    - target: zip
       arch: arm64
   # Self-contained whisper-cli + ffmpeg for Apple Silicon, flattened to
   # Contents/Resources/bin (where src/main/binaries.ts looks when packaged).
@@ -25,10 +29,11 @@ mac:
       to: bin
 
 win:
-  # M1: zip is buildable on macOS without Wine — friend unzips and runs the .exe.
-  # M2 switches to nsis (+ auto-update) built on a Windows CI runner (no Wine).
+  # nsis (installer + auto-update) is built on a Windows CI runner — no Wine.
+  # For a quick local Wine-free build, override with: electron-builder --win zip
+  # (see `npm run package:win:zip`).
   target:
-    - target: zip
+    - target: nsis
       arch: x64
   extraResources:
     - from: resources/bin/win

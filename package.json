@@ -12,8 +12,11 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "smoke": "tsx scripts/smoke.ts",
     "package": "electron-vite build && electron-builder",
+    "package:mac": "electron-vite build && electron-builder --mac",
     "package:win": "electron-vite build && electron-builder --win",
-    "package:mac": "electron-vite build && electron-builder --mac"
+    "package:win:zip": "electron-vite build && electron-builder --win zip",
+    "release:mac": "electron-vite build && electron-builder --mac --publish always",
+    "release:win": "electron-vite build && electron-builder --win --publish always"
   },
   "dependencies": {
     "electron-updater": "^6.3.9"

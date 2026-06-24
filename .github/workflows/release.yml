@@ -1,0 +1,42 @@
+name: Release
+
+# Push a version tag to build + publish installers for both platforms:
+#   npm version patch && git push --follow-tags
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write # create the GitHub Release + upload assets
+
+jobs:
+  release:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14 # Apple Silicon runner (arm64)
+            platform: mac
+          - os: windows-latest # x64, native NSIS build (no Wine)
+            platform: win
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # Pull whisper-cli + ffmpeg into resources/bin/<platform>.
+      - run: node scripts/stage-binaries.mjs ${{ matrix.platform }}
+
+      # Build renderer/main/preload, then package + publish to the Release.
+      - run: npx electron-vite build && npx electron-builder --${{ matrix.platform }} --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # No Apple certs in CI yet — ship unsigned (Gatekeeper warning).
+          CSC_IDENTITY_AUTO_DISCOVERY: false

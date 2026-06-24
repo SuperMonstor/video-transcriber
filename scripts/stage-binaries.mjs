@@ -43,7 +43,9 @@ async function download(url, dest) {
 }
 
 async function extractZip(zipPath, outDir) {
-  await pExecFile("unzip", ["-o", "-q", zipPath, "-d", outDir]);
+  // bsdtar (macOS + Windows `tar`) extracts .zip; avoids depending on `unzip`,
+  // which isn't guaranteed on Windows CI runners.
+  await pExecFile("tar", ["-xf", zipPath, "-C", outDir]);
 }
 
 /** Recursively find files under `dir` matching a predicate. */
