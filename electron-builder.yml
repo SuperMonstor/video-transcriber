@@ -42,7 +42,7 @@ nsis:
 # Auto-update feed (wired up in M2). Repo must exist + be public.
 publish:
   provider: github
-  owner: REPLACE_WITH_GITHUB_USER
+  owner: SuperMonstor
   repo: video-transcriber
 
 artifactName: ${productName}-${version}-${arch}.${ext}
