@@ -1,0 +1,46 @@
+appId: com.debateclub.videotranscriber
+productName: Video Transcriber
+
+directories:
+  output: release
+  buildResources: build
+
+# Only the built output ships in the asar; node_modules are pruned by builder.
+files:
+  - out/**
+  - "package.json"
+  - "!**/*.map"
+
+asar: true
+
+mac:
+  category: public.app-category.productivity
+  target:
+    - target: dmg
+      arch: arm64
+  # Self-contained whisper-cli + ffmpeg for Apple Silicon, flattened to
+  # Contents/Resources/bin (where src/main/binaries.ts looks when packaged).
+  extraResources:
+    - from: resources/bin/mac
+      to: bin
+
+win:
+  target:
+    - target: nsis
+      arch: x64
+  extraResources:
+    - from: resources/bin/win
+      to: bin
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  perMachine: false
+
+# Auto-update feed (wired up in M2). Repo must exist + be public.
+publish:
+  provider: github
+  owner: REPLACE_WITH_GITHUB_USER
+  repo: video-transcriber
+
+artifactName: ${productName}-${version}-${arch}.${ext}
