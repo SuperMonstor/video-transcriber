@@ -1,7 +1,14 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
 
 import type { TranscribeOptions } from "../lib/engine/types";
-import { CH, type ProgressMsg, type SaveArgs, type StartArgs } from "../shared/ipc";
+import {
+  CH,
+  type ProgressMsg,
+  type SaveArgs,
+  type SetupProgressMsg,
+  type SetupStatus,
+  type StartArgs,
+} from "../shared/ipc";
 
 const api = {
   /** Resolve the absolute path of a dropped/picked File (Electron 32+). */
@@ -22,6 +29,15 @@ const api = {
     const listener = (_e: unknown, msg: ProgressMsg): void => cb(msg);
     ipcRenderer.on(CH.progress, listener);
     return () => ipcRenderer.removeListener(CH.progress, listener);
+  },
+
+  // ---- first-run model setup ----
+  setupStatus: (): Promise<SetupStatus> => ipcRenderer.invoke(CH.setupStatus),
+  setupDownload: (): Promise<SetupStatus> => ipcRenderer.invoke(CH.setupDownload),
+  onSetupProgress: (cb: (msg: SetupProgressMsg) => void): (() => void) => {
+    const listener = (_e: unknown, msg: SetupProgressMsg): void => cb(msg);
+    ipcRenderer.on(CH.setupProgress, listener);
+    return () => ipcRenderer.removeListener(CH.setupProgress, listener);
   },
 };
 

@@ -109,6 +109,10 @@ button.danger {
   margin-left: auto;
 }
 
+.setup-btn {
+  margin: 24px 0 0;
+}
+
 .progress {
   margin-top: 22px;
 }

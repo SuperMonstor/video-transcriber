@@ -7,6 +7,9 @@ export const CH = {
   cancel: "transcribe:cancel",
   progress: "transcribe:progress",
   save: "transcribe:save",
+  setupStatus: "setup:status",
+  setupDownload: "setup:download",
+  setupProgress: "setup:progress",
 } as const;
 
 export type StartArgs = { videoPath: string; options: TranscribeOptions };
@@ -14,3 +17,14 @@ export type SaveArgs = { text: string; defaultName: string };
 
 /** Progress event tagged with the job it belongs to. */
 export type ProgressMsg = { jobId: string } & Progress;
+
+/** Whether required model assets are present (first-run gate). */
+export type SetupStatus = { ready: boolean };
+
+export type SetupProgressMsg = {
+  id: string; // asset id, e.g. "large-v3-turbo"
+  received: number;
+  total: number;
+  phase: "downloading" | "done" | "error";
+  message?: string;
+};
