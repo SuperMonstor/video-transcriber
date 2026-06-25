@@ -27,6 +27,14 @@ mac:
   extraResources:
     - from: resources/bin/mac
       to: bin
+  # Signed + notarized with the Developer ID (creds from CI secrets) → no
+  # Gatekeeper warning and clean auto-update. hardened runtime + entitlements
+  # let whisper.cpp (Metal/JIT) and the vendored dylibs run.
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  notarize: true
 
 win:
   # nsis (installer + auto-update) is built on a Windows CI runner — no Wine.

@@ -16,10 +16,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # macOS re-enabled once self-contained mac binaries are staged
-          # (dylib relocation). Until then, Windows-only.
-          # - os: macos-14
-          #   platform: mac
+          - os: macos-14 # Apple Silicon (arm64); signed + notarized dmg/zip
+            platform: mac
           - os: windows-latest # x64, native NSIS build (no Wine)
             platform: win
     runs-on: ${{ matrix.os }}
@@ -42,6 +40,10 @@ jobs:
           path: resources/bin/${{ matrix.platform }}
           key: bin-${{ matrix.platform }}-${{ hashFiles('scripts/stage-binaries.mjs') }}
 
+      # macOS staging relocates Homebrew binaries — install the formulae first.
+      - if: matrix.platform == 'mac' && steps.bincache.outputs.cache-hit != 'true'
+        run: brew install whisper-cpp ffmpeg dylibbundler
+
       # Pull whisper-cli + ffmpeg into resources/bin/<platform> (skip on cache hit).
       - if: steps.bincache.outputs.cache-hit != 'true'
         run: node scripts/stage-binaries.mjs ${{ matrix.platform }}
@@ -50,5 +52,11 @@ jobs:
       - run: npx electron-vite build && npx electron-builder --${{ matrix.platform }} --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # No Apple certs in CI yet — ship unsigned (Gatekeeper warning).
-          CSC_IDENTITY_AUTO_DISCOVERY: false
+          # mac signing cert (base64 .p12 + password); empty on Windows so it
+          # doesn't try to sign the .exe with a mac cert.
+          CSC_LINK: ${{ matrix.platform == 'mac' && secrets.MAC_CSC_LINK || '' }}
+          CSC_KEY_PASSWORD: ${{ matrix.platform == 'mac' && secrets.MAC_CSC_KEY_PASSWORD || '' }}
+          # notarization creds (mac only; ignored by the Windows build)
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}

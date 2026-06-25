@@ -1,34 +1,29 @@
 /**
  * Stage native binaries into resources/bin/<platform> before an electron-builder
- * packaging build. Downloads release archives, extracts the needed executables +
- * libraries, and flattens them into the bundle's bin dir.
+ * packaging build.
  *
- *   node scripts/stage-binaries.mjs win
- *   node scripts/stage-binaries.mjs mac
+ *   node scripts/stage-binaries.mjs win   # download whisper.cpp CUDA + ffmpeg zips
+ *   node scripts/stage-binaries.mjs mac   # relocate Homebrew binaries to be portable
  *
- * URLs/manifests are filled in from verified research (see MANIFEST below).
+ * Windows uses prebuilt self-contained release zips (MANIFEST). macOS has no
+ * equivalent — Homebrew binaries are dynamically linked, so we copy them and use
+ * dylibbundler to vendor their dylibs next to the binary (@executable_path/libs).
+ * CI installs the Homebrew formulae + dylibbundler before calling this.
  */
-import { execFile } from "node:child_process";
-import { createWriteStream, existsSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { createWriteStream } from "node:fs";
 import { cp, mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { basename, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
 
-const pExecFile = promisify(execFile);
 // fileURLToPath (not .pathname) — on Windows .pathname gives "/C:/..." which
 // breaks path joins.
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 
-/**
- * Per-platform list of archives to fetch and which files to pull out.
- * `pick` is a list of basenames (case-insensitive) to copy into bin/.
- * `pickExt` copies every file with one of those extensions (e.g. dll).
- * Filled from the binary research — left empty here until verified.
- */
+/** Windows: archives to fetch and which files to extract (flattened into bin/). */
 const MANIFEST = {
   win: [
     {
@@ -45,9 +40,6 @@ const MANIFEST = {
       pick: ["ffmpeg.exe", "ffprobe.exe"],
     },
   ],
-  mac: [
-    // mac needs dylib relocation for whisper-cli; handled separately.
-  ],
 };
 
 async function download(url, dest) {
@@ -59,7 +51,7 @@ async function download(url, dest) {
 async function extractZip(zipPath, outDir) {
   // bsdtar (macOS + Windows `tar`) extracts .zip; avoids depending on `unzip`,
   // which isn't guaranteed on Windows CI runners.
-  await pExecFile("tar", ["-xf", zipPath, "-C", outDir]);
+  execFileSync("tar", ["-xf", zipPath, "-C", outDir]);
 }
 
 /** Recursively find files under `dir` matching a predicate. */
@@ -72,15 +64,11 @@ async function findFiles(dir, match, acc = []) {
   return acc;
 }
 
-async function stage(platform) {
+async function stageFromManifest(platform, binDir) {
   const entries = MANIFEST[platform];
   if (!entries || entries.length === 0) {
-    throw new Error(
-      `No binary manifest for "${platform}" yet — fill MANIFEST with verified URLs.`,
-    );
+    throw new Error(`No binary manifest for "${platform}".`);
   }
-
-  const binDir = join(ROOT, "resources", "bin", platform);
   await rm(binDir, { recursive: true, force: true });
   await mkdir(binDir, { recursive: true });
 
@@ -105,9 +93,42 @@ async function stage(platform) {
     }
     await rm(work, { recursive: true, force: true });
   }
+}
 
-  console.log(`\nStaged into ${binDir}`);
-  console.log(await readdir(binDir));
+const sh = (cmd, args) => execFileSync(cmd, args, { encoding: "utf8" }).trim();
+const realPathOf = (bin) => sh("readlink", ["-f", sh("which", [bin])]);
+
+/**
+ * macOS: copy whisper-cli/ffmpeg/ffprobe and vendor their dylibs into bin/mac/libs
+ * with @executable_path/libs paths, so the bundle runs without Homebrew. Requires
+ * whisper-cli, ffmpeg, ffprobe, and dylibbundler on PATH (CI brew-installs them).
+ */
+async function stageMac(binDir) {
+  await rm(binDir, { recursive: true, force: true });
+  await mkdir(join(binDir, "libs"), { recursive: true });
+
+  const brewLib = join(sh("brew", ["--prefix"]), "lib");
+
+  for (const name of ["whisper-cli", "ffmpeg", "ffprobe"]) {
+    const real = realPathOf(name);
+    const dest = join(binDir, name);
+    await cp(real, dest);
+    // whisper-cli resolves its dylibs via @loader_path/../lib (sibling of bin/);
+    // ffmpeg/ffprobe via the Homebrew lib dir. Pass both as search paths.
+    const searchPaths = [join(dirname(real), "..", "lib"), brewLib];
+    execFileSync(
+      "dylibbundler",
+      [
+        "-of", "-cd", "-b",
+        "-x", dest,
+        "-d", join(binDir, "libs"),
+        "-p", "@executable_path/libs/",
+        ...searchPaths.flatMap((p) => ["-s", p]),
+      ],
+      { stdio: ["ignore", "inherit", "inherit"] },
+    );
+    console.log(`  → bin/mac/${name} (+ vendored dylibs)`);
+  }
 }
 
 const platform = process.argv[2];
@@ -115,11 +136,15 @@ if (!["win", "mac"].includes(platform)) {
   console.error("usage: node scripts/stage-binaries.mjs <win|mac>");
   process.exit(1);
 }
-if (!existsSync(join(ROOT, "resources"))) {
-  console.error("run from the project root");
-  process.exit(1);
-}
-stage(platform).catch((err) => {
-  console.error(err.message);
-  process.exit(1);
-});
+
+const binDir = join(ROOT, "resources", "bin", platform);
+const run = platform === "mac" ? stageMac(binDir) : stageFromManifest(platform, binDir);
+run
+  .then(async () => {
+    console.log(`\nStaged into ${binDir}`);
+    console.log(await readdir(binDir));
+  })
+  .catch((err) => {
+    console.error(err.message);
+    process.exit(1);
+  });
