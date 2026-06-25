@@ -17,7 +17,6 @@ const STAGE_LABEL: Record<string, string> = {
 export function App(): JSX.Element {
   const [filePath, setFilePath] = useState<string | null>(null);
   const [model, setModel] = useState<ModelName>("large-v3-turbo");
-  const [vad, setVad] = useState(true);
 
   const [status, setStatus] = useState<Status>("idle");
   const [stage, setStage] = useState<string>("");
@@ -75,9 +74,11 @@ export function App(): JSX.Element {
     if (!filePath) return;
     reset();
     setStatus("running");
-    const { jobId: id } = await window.transcriber.start(filePath, { model, vad });
+    // VAD is always on — it suppresses hallucinated text during silence, which
+    // matters for clip-finding. Not exposed as a toggle (footgun if disabled).
+    const { jobId: id } = await window.transcriber.start(filePath, { model });
     jobId.current = id;
-  }, [filePath, model, vad]);
+  }, [filePath, model]);
 
   const cancel = useCallback(async () => {
     if (jobId.current) await window.transcriber.cancel(jobId.current);
@@ -141,15 +142,6 @@ export function App(): JSX.Element {
             <option value="large-v3-turbo">large-v3-turbo (recommended)</option>
             <option value="medium">medium (faster)</option>
           </select>
-        </label>
-        <label className="checkbox">
-          <input
-            type="checkbox"
-            checked={vad}
-            onChange={(e) => setVad(e.target.checked)}
-            disabled={status === "running"}
-          />
-          Skip silence (VAD)
         </label>
 
         {status === "running" ? (
