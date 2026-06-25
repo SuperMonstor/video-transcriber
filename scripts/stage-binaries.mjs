@@ -15,10 +15,13 @@ import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
+import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
 const pExecFile = promisify(execFile);
-const ROOT = new URL("..", import.meta.url).pathname;
+// fileURLToPath (not .pathname) — on Windows .pathname gives "/C:/..." which
+// breaks path joins.
+const ROOT = fileURLToPath(new URL("..", import.meta.url));
 
 /**
  * Per-platform list of archives to fetch and which files to pull out.
