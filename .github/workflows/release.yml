@@ -16,8 +16,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-14 # Apple Silicon runner (arm64)
-            platform: mac
+          # macOS re-enabled once self-contained mac binaries are staged
+          # (dylib relocation). Until then, Windows-only.
+          # - os: macos-14
+          #   platform: mac
           - os: windows-latest # x64, native NSIS build (no Wine)
             platform: win
     runs-on: ${{ matrix.os }}
@@ -31,8 +33,18 @@ jobs:
 
       - run: npm ci
 
-      # Pull whisper-cli + ffmpeg into resources/bin/<platform>.
-      - run: node scripts/stage-binaries.mjs ${{ matrix.platform }}
+      # Cache the staged native binaries (keyed by the manifest), so only the
+      # first release downloads the ~677 MB CUDA build — later releases reuse it.
+      - name: Cache native binaries
+        id: bincache
+        uses: actions/cache@v4
+        with:
+          path: resources/bin/${{ matrix.platform }}
+          key: bin-${{ matrix.platform }}-${{ hashFiles('scripts/stage-binaries.mjs') }}
+
+      # Pull whisper-cli + ffmpeg into resources/bin/<platform> (skip on cache hit).
+      - if: steps.bincache.outputs.cache-hit != 'true'
+        run: node scripts/stage-binaries.mjs ${{ matrix.platform }}
 
       # Build renderer/main/preload, then package + publish to the Release.
       - run: npx electron-vite build && npx electron-builder --${{ matrix.platform }} --publish always

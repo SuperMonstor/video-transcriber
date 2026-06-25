@@ -28,8 +28,19 @@ const ROOT = new URL("..", import.meta.url).pathname;
  */
 const MANIFEST = {
   win: [
-    // { url: "https://.../whisper-cublas-...-bin-x64.zip", pick: ["whisper-cli.exe"], pickExt: ["dll"] },
-    // { url: "https://.../ffmpeg-...-win64-static.zip", pick: ["ffmpeg.exe", "ffprobe.exe"] },
+    {
+      // whisper.cpp v1.9.1 CUDA 12.4 build — self-contained (bundles cudart/
+      // cublas/cublasLt DLLs). Runs on the GTX 1650 (Turing 7.5) with just an
+      // NVIDIA driver. whisper-cli.exe + every DLL (incl. all ggml-cpu variants).
+      url: "https://github.com/ggml-org/whisper.cpp/releases/download/v1.9.1/whisper-cublas-12.4.0-bin-x64.zip",
+      pick: ["whisper-cli.exe"],
+      pickExt: ["dll"],
+    },
+    {
+      // BtbN static (non-shared) ffmpeg — no external DLLs. Pinned to the 7.1 line.
+      url: "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n7.1-latest-win64-gpl-7.1.zip",
+      pick: ["ffmpeg.exe", "ffprobe.exe"],
+    },
   ],
   mac: [
     // mac needs dylib relocation for whisper-cli; handled separately.
