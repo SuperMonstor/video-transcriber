@@ -49,14 +49,29 @@ jobs:
         run: node scripts/stage-binaries.mjs ${{ matrix.platform }}
 
       # Build renderer/main/preload, then package + publish to the Release.
-      - run: npx electron-vite build && npx electron-builder --${{ matrix.platform }} --publish always
+      # If mac signing secrets are absent, unset the empty CSC_* variables so
+      # electron-builder falls back to an unsigned local build instead of trying
+      # to treat the repo directory as a certificate file.
+      - if: matrix.platform == 'mac'
+        shell: bash
+        run: |
+          if [ -z "${CSC_LINK:-}" ]; then
+            unset CSC_LINK
+            unset CSC_KEY_PASSWORD
+          fi
+          npx electron-vite build
+          npx electron-builder --mac --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # mac signing cert (base64 .p12 + password); empty on Windows so it
-          # doesn't try to sign the .exe with a mac cert.
-          CSC_LINK: ${{ matrix.platform == 'mac' && secrets.MAC_CSC_LINK || '' }}
-          CSC_KEY_PASSWORD: ${{ matrix.platform == 'mac' && secrets.MAC_CSC_KEY_PASSWORD || '' }}
+          # mac signing cert (base64 .p12 + password); optional.
+          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
           # notarization creds (mac only; ignored by the Windows build)
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - if: matrix.platform == 'win'
+        run: npx electron-vite build && npx electron-builder --win --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
