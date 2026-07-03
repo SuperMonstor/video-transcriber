@@ -14,6 +14,24 @@ resources/bin/mac/    whisper-cli  ggml*.dylib  ffmpeg  ffprobe   (arm64)
 resources/bin/win/    whisper-cli.exe  *.dll     ffmpeg.exe  ffprobe.exe   (x64)
 ```
 
+Optional speaker detection also looks for:
+
+```
+resources/bin/mac/    sherpa-onnx-offline-speaker-diarization
+resources/bin/win/    sherpa-onnx-offline-speaker-diarization.exe
+```
+
+The sherpa ONNX model files are resolved from the app model directory, not from
+`resources/bin`:
+
+```
+models/sherpa-onnx-pyannote-segmentation-3-0/model.int8.onnx
+models/nemo_en_titanet_small.onnx
+```
+
+For local development, override these with `SHERPA_ONNX_DIARIZE`,
+`SHERPA_ONNX_SEGMENTATION_MODEL`, and `SHERPA_ONNX_EMBEDDING_MODEL`.
+
 ## Sourcing notes
 
 - **ffmpeg / ffprobe** — use fully static builds (no dylib/DLL dependencies):
@@ -26,6 +44,12 @@ resources/bin/win/    whisper-cli.exe  *.dll     ffmpeg.exe  ffprobe.exe   (x64)
   statically. For Windows, use the official whisper.cpp release zip
   (`whisper-cli.exe` + DLLs) — CPU build for first cut, cuBLAS build to use the
   GTX 1650's GPU.
+- **sherpa-onnx diarization** — use the prebuilt
+  `sherpa-onnx-offline-speaker-diarization` CLI for each platform, plus the
+  `sherpa-onnx-pyannote-segmentation-3-0` int8 segmentation model and
+  `nemo_en_titanet_small.onnx` speaker embedding model. Diarization is optional:
+  if the binary or either model is missing, the app falls back to normal
+  transcription.
 
 A `scripts/stage-binaries` helper will automate this once the sourcing approach
 is chosen (see ARCHITECTURE.md §10 / packaging decision).

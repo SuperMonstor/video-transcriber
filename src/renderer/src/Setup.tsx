@@ -4,6 +4,13 @@ import type { SetupProgressMsg } from "../../shared/ipc";
 
 const mb = (n: number) => `${(n / 1_048_576).toFixed(0)} MB`;
 
+const LABELS: Record<string, string> = {
+  "large-v3-turbo": "Transcription model",
+  "silero-vad": "Voice-activity model",
+  "sherpa-segmentation": "Speaker segmentation model",
+  "sherpa-embedding": "Speaker embedding model",
+};
+
 export function Setup({ onReady }: { onReady: () => void }): JSX.Element {
   const [downloading, setDownloading] = useState(false);
   const [pct, setPct] = useState(0);
@@ -21,7 +28,7 @@ export function Setup({ onReady }: { onReady: () => void }): JSX.Element {
         setReceived(m.received);
         setTotal(m.total);
         setPct(Math.floor((m.received / m.total) * 100));
-        setLabel(m.id === "silero-vad" ? "Voice-activity model" : "Transcription model");
+        setLabel(LABELS[m.id] ?? "Model asset");
       }
     });
   }, []);
@@ -40,13 +47,14 @@ export function Setup({ onReady }: { onReady: () => void }): JSX.Element {
         <h1>One-time setup</h1>
         <p className="muted">
           Video Transcriber needs to download the speech model (~1.6&nbsp;GB) the first
-          time. It runs fully offline after this — nothing is uploaded.
+          time. Optional speaker-detection models are downloaded too when available.
+          It runs fully offline after this — nothing is uploaded.
         </p>
       </header>
 
       {!downloading && !error && (
         <button className="primary setup-btn" onClick={start}>
-          Download model (~1.6 GB)
+          Download models (~1.7 GB)
         </button>
       )}
 

@@ -12,8 +12,11 @@ import {
 } from "../shared/ipc";
 import { resolveAppBinaries } from "./binaries";
 import {
+  diarizationEmbeddingModelPath,
+  diarizationSegmentationModelPath,
   type AssetId,
   ensureAssets,
+  ensureDiarizationAssets,
   isReady,
   modelPathFor,
   vadModelPath,
@@ -33,17 +36,36 @@ export function registerIpc(): void {
       if (!sender.isDestroyed()) sender.send(CH.progress, { jobId, ...p });
     };
 
-    // Inject resolved binaries + model/VAD paths the renderer can't know.
-    const model = args.options.model ?? "large-v3-turbo";
-    const options = {
-      ...args.options,
-      binaries: resolveAppBinaries(),
-      modelPath: modelPathFor(model),
-      vadModelPath: vadModelPath(),
+    const buildOptions = () => {
+      // Inject resolved binaries + model/VAD paths the renderer can't know.
+      const model = args.options.model ?? "large-v3-turbo";
+      return {
+        ...args.options,
+        binaries: resolveAppBinaries(),
+        modelPath: modelPathFor(model),
+        vadModelPath: vadModelPath(),
+        diarizationSegmentationModelPath: diarizationSegmentationModelPath(),
+        diarizationEmbeddingModelPath: diarizationEmbeddingModelPath(),
+      };
     };
 
     // Fire and forget — the UI is driven by the progress stream (incl. done/error).
-    void transcribe(args.videoPath, options, send, ac.signal)
+    void (async () => {
+      let options = buildOptions();
+      if (
+        args.options.detectSpeakers &&
+        (!options.diarizationSegmentationModelPath || !options.diarizationEmbeddingModelPath)
+      ) {
+        send({ stage: "setup" });
+        try {
+          await ensureDiarizationAssets(() => {});
+        } catch {
+          // Optional; transcribe will fall back if speaker assets are still absent.
+        }
+        options = buildOptions();
+      }
+      await transcribe(args.videoPath, options, send, ac.signal);
+    })()
       .catch(() => {
         /* error already delivered via the `error` progress event */
       })

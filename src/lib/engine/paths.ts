@@ -16,6 +16,8 @@ export function resolveBinaries(): Binaries {
     whisperCli: process.env.WHISPER_CLI || "whisper-cli",
     ffmpeg: process.env.FFMPEG || "ffmpeg",
     ffprobe: process.env.FFPROBE || "ffprobe",
+    sherpaDiarize:
+      process.env.SHERPA_ONNX_DIARIZE || "sherpa-onnx-offline-speaker-diarization",
   };
 }
 

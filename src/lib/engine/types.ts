@@ -2,9 +2,9 @@
 
 export type ModelName = "large-v3-turbo" | "medium";
 
-export type Word = { start: number; end: number; text: string };
-export type Segment = { id: number; start: number; end: number; text: string };
-// Phase 2 adds an optional `speaker?: string` to Segment/Word — additive.
+export type Word = { start: number; end: number; text: string; speaker?: string };
+export type Segment = { id: number; start: number; end: number; text: string; speaker?: string };
+export type SpeakerTurn = { start: number; end: number; speaker: string };
 
 export type Transcript = {
   source: string; // original video filename
@@ -20,6 +20,7 @@ export type Binaries = {
   whisperCli: string;
   ffmpeg: string;
   ffprobe: string;
+  sherpaDiarize?: string;
 };
 
 export type TranscribeOptions = {
@@ -28,6 +29,8 @@ export type TranscribeOptions = {
   vad?: boolean; // default: true (skipped if no VAD model resolves)
   beamSize?: number; // default: 5
   initialPrompt?: string; // debate vocab + speaker names
+  detectSpeakers?: boolean; // optional sherpa-onnx diarization path
+  speakerCount?: number; // optional clustering hint for diarization
   threads?: number; // default: min(10, cpu count)
   workDir?: string; // intermediate wav/json location; default: a temp dir
 
@@ -36,12 +39,16 @@ export type TranscribeOptions = {
   binaries?: Binaries;
   modelPath?: string;
   vadModelPath?: string | null;
+  diarizationSegmentationModelPath?: string | null;
+  diarizationEmbeddingModelPath?: string | null;
 };
 
 export type Progress =
+  | { stage: "setup" }
   | { stage: "probe" }
   | { stage: "audio" }
   | { stage: "transcribe"; percent: number } // parsed from whisper -pp
+  | { stage: "diarize" }
   | { stage: "normalize" }
   | { stage: "done"; transcript: Transcript }
   | { stage: "error"; message: string };

@@ -3,9 +3,11 @@ import os from "node:os";
 import path from "node:path";
 
 import { extractAudio } from "./audio";
+import { diarizationAvailable, diarize, type DiarizeParams } from "./diarize";
 import { normalize, type WhisperFullJson } from "./normalize";
 import { resolveBinaries, resolveModelPath, resolveVadModel } from "./paths";
 import { probeDuration } from "./probe";
+import { assignSpeakers } from "./speakers";
 import type { ProgressFn, Transcript, TranscribeOptions } from "./types";
 import { runWhisper } from "./whisper";
 
@@ -62,11 +64,34 @@ export async function transcribe(
       signal,
     );
 
+    const diarizeParams: DiarizeParams = {
+      sherpaDiarize: binaries.sherpaDiarize,
+      audioPath,
+      segmentationModelPath: options.diarizationSegmentationModelPath,
+      embeddingModelPath: options.diarizationEmbeddingModelPath,
+      speakerCount: options.speakerCount,
+    };
+    const speakerTurns =
+      options.detectSpeakers && diarizationAvailable(diarizeParams)
+        ? await (async () => {
+            onProgress({ stage: "diarize" });
+            try {
+              return await diarize(diarizeParams, signal);
+            } catch {
+              // Diarization is optional. Keep the fast-path transcript if sherpa fails.
+              return [];
+            }
+          })()
+        : [];
+
     onProgress({ stage: "normalize" });
     const raw = JSON.parse(await fs.readFile(jsonPath, "utf8")) as WhisperFullJson;
-    const transcript = normalize(raw, { source: path.basename(videoPath), model });
+    let transcript = normalize(raw, { source: path.basename(videoPath), model });
     // whisper's own end time is authoritative, but fall back to ffprobe.
     if (!transcript.duration && duration) transcript.duration = duration;
+    if (options.detectSpeakers) {
+      transcript = assignSpeakers(transcript, speakerTurns);
+    }
 
     onProgress({ stage: "done", transcript });
     return transcript;

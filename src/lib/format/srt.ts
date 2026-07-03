@@ -7,7 +7,7 @@ export function toSrt(t: Transcript): string {
     t.segments
       .map((s, i) => {
         const range = `${timestamp(s.start, ",")} --> ${timestamp(s.end, ",")}`;
-        return `${i + 1}\n${range}\n${s.text}`;
+        return `${i + 1}\n${range}\n${s.speaker ? `${s.speaker}: ` : ""}${s.text}`;
       })
       .join("\n\n") + "\n"
   );

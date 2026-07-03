@@ -39,6 +39,16 @@ const MANIFEST = {
       url: "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n7.1-latest-win64-gpl-7.1.zip",
       pick: ["ffmpeg.exe", "ffprobe.exe"],
     },
+    {
+      // sherpa-onnx speaker diarization runtime. Shared no-TTS build keeps the
+      // payload small; copy the diarization CLI plus runtime DLLs beside it.
+      url: "https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.13.3/sherpa-onnx-v1.13.3-win-x64-shared-MD-Release-no-tts.tar.bz2",
+      pick: [
+        "sherpa-onnx-offline-speaker-diarization.exe",
+        "onnxruntime.dll",
+        "onnxruntime_providers_shared.dll",
+      ],
+    },
   ],
 };
 
@@ -49,7 +59,7 @@ async function download(url, dest) {
 }
 
 async function extractZip(zipPath, outDir) {
-  // bsdtar (macOS + Windows `tar`) extracts .zip; avoids depending on `unzip`,
+  // bsdtar (macOS + Windows `tar`) extracts .zip/.tar.bz2; avoids depending on `unzip`,
   // which isn't guaranteed on Windows CI runners.
   execFileSync("tar", ["-xf", zipPath, "-C", outDir]);
 }
@@ -129,6 +139,27 @@ async function stageMac(binDir) {
     );
     console.log(`  → bin/mac/${name} (+ vendored dylibs)`);
   }
+
+  const work = await mkdtemp(join(tmpdir(), "vt-sherpa-"));
+  const archive = join(work, "sherpa-onnx-osx-arm64-shared-no-tts.tar.bz2");
+  const url =
+    "https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.13.3/sherpa-onnx-v1.13.3-osx-arm64-shared-no-tts.tar.bz2";
+  console.log(`↓ ${url}`);
+  await download(url, archive);
+  await extractZip(archive, work);
+
+  const sherpaFiles = await findFiles(
+    work,
+    (name) =>
+      name === "sherpa-onnx-offline-speaker-diarization" ||
+      name === "libonnxruntime.1.24.4.dylib" ||
+      name === "libonnxruntime.dylib",
+  );
+  for (const f of sherpaFiles) {
+    await cp(f, join(binDir, basename(f)));
+    console.log(`  → bin/mac/${basename(f)}`);
+  }
+  await rm(work, { recursive: true, force: true });
 }
 
 const platform = process.argv[2];

@@ -8,15 +8,18 @@ import type { ProgressMsg } from "../../shared/ipc";
 type Status = "idle" | "running" | "done" | "error";
 
 const STAGE_LABEL: Record<string, string> = {
+  setup: "Preparing models…",
   probe: "Reading video…",
   audio: "Extracting audio…",
   transcribe: "Transcribing…",
+  diarize: "Detecting speakers…",
   normalize: "Finishing up…",
 };
 
 export function App(): JSX.Element {
   const [filePath, setFilePath] = useState<string | null>(null);
   const [model, setModel] = useState<ModelName>("large-v3-turbo");
+  const [detectSpeakers, setDetectSpeakers] = useState(false);
 
   const [status, setStatus] = useState<Status>("idle");
   const [stage, setStage] = useState<string>("");
@@ -76,9 +79,12 @@ export function App(): JSX.Element {
     setStatus("running");
     // VAD is always on — it suppresses hallucinated text during silence, which
     // matters for clip-finding. Not exposed as a toggle (footgun if disabled).
-    const { jobId: id } = await window.transcriber.start(filePath, { model });
+    const { jobId: id } = await window.transcriber.start(filePath, {
+      model,
+      detectSpeakers,
+    });
     jobId.current = id;
-  }, [filePath, model]);
+  }, [detectSpeakers, filePath, model]);
 
   const cancel = useCallback(async () => {
     if (jobId.current) await window.transcriber.cancel(jobId.current);
@@ -144,6 +150,16 @@ export function App(): JSX.Element {
           </select>
         </label>
 
+        <label className="checkbox">
+          <input
+            type="checkbox"
+            checked={detectSpeakers}
+            onChange={(e) => setDetectSpeakers(e.target.checked)}
+            disabled={status === "running"}
+          />
+          Detect speakers (slower)
+        </label>
+
         {status === "running" ? (
           <button className="danger" onClick={cancel}>
             Cancel
@@ -185,6 +201,7 @@ export function App(): JSX.Element {
             {transcript.segments.map((s) => (
               <li key={s.id}>
                 <span className="ts">{hms(s.start)}</span>
+                {s.speaker && <span className="speaker">{s.speaker}</span>}
                 <span>{s.text}</span>
               </li>
             ))}

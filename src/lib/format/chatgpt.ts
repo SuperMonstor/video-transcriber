@@ -16,6 +16,8 @@ export function toChatGPT(t: Transcript): string {
     "",
   ].join("\n");
 
-  const body = t.segments.map((s) => `[${hms(s.start)}] ${s.text}`).join("\n");
+  const body = t.segments
+    .map((s) => `[${hms(s.start)}] ${s.speaker ? `${s.speaker}: ` : ""}${s.text}`)
+    .join("\n");
   return `${header}\n${body}\n`;
 }

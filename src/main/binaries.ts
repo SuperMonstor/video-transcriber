@@ -24,5 +24,9 @@ export function resolveAppBinaries(): Binaries {
     whisperCli: bin("whisper-cli", "WHISPER_CLI"),
     ffmpeg: bin("ffmpeg", "FFMPEG"),
     ffprobe: bin("ffprobe", "FFPROBE"),
+    sherpaDiarize: bin(
+      "sherpa-onnx-offline-speaker-diarization",
+      "SHERPA_ONNX_DIARIZE",
+    ),
   };
 }
