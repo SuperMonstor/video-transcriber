@@ -6,8 +6,10 @@ import type { Binaries } from "../lib/engine/types";
 
 /**
  * Resolve a helper binary. In a packaged app, prefer the platform binary bundled
- * under resources/bin (placed there by electron-builder, Task #5). In dev, fall
- * back to PATH (Homebrew-installed whisper-cli / ffmpeg), overridable via env.
+ * under resources/bin (placed there by electron-builder, Task #5). In dev, use
+ * binaries staged by `scripts/stage-binaries.mjs` in resources/bin/<platform> if
+ * present, else fall back to PATH (Homebrew-installed whisper-cli / ffmpeg).
+ * Always overridable via env.
  */
 function bin(name: string, env?: string): string {
   if (env && process.env[env]) return process.env[env]!;
@@ -15,6 +17,10 @@ function bin(name: string, env?: string): string {
   if (app.isPackaged) {
     const bundled = join(process.resourcesPath, "bin", exe);
     if (existsSync(bundled)) return bundled;
+  } else {
+    const platformDir = process.platform === "win32" ? "win" : "mac";
+    const staged = join(app.getAppPath(), "resources", "bin", platformDir, exe);
+    if (existsSync(staged)) return staged;
   }
   return name; // PATH
 }
