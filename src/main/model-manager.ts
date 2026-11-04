@@ -11,6 +11,18 @@ import type { ModelName } from "../lib/engine/types";
 
 const execFileAsync = promisify(execFile);
 
+/**
+ * The tar to extract archives with. On Windows, use the OS-bundled bsdtar by
+ * absolute path: a bare `tar` can resolve to GNU tar (Git Bash / MSYS on PATH),
+ * which parses `C:\...` as a remote `host:path` and fails with
+ * "Cannot connect to C: resolve failed".
+ */
+function tarCommand(): string {
+  if (process.platform !== "win32") return "tar";
+  const systemTar = join(process.env.SystemRoot || "C:\\Windows", "System32", "tar.exe");
+  return existsSync(systemTar) ? systemTar : "tar";
+}
+
 type Asset = {
   file: string;
   url: string;
@@ -129,8 +141,11 @@ export async function download(id: AssetId, onProgress: DownloadProgress): Promi
   const source = Readable.fromWeb(res.body as Parameters<typeof Readable.fromWeb>[0]);
   await pipeline(source, counter, createWriteStream(tmp));
   if (asset.archive === "tar.bz2") {
-    await execFileAsync("tar", ["-xf", tmp, "-C", modelsDir()]);
-    await rm(tmp, { force: true });
+    try {
+      await execFileAsync(tarCommand(), ["-xf", tmp, "-C", modelsDir()]);
+    } finally {
+      await rm(tmp, { force: true });
+    }
   } else {
     await rename(tmp, dest);
   }

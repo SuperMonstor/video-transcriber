@@ -11,7 +11,7 @@
  * CI installs the Homebrew formulae + dylibbundler before calling this.
  */
 import { execFileSync } from "node:child_process";
-import { createWriteStream } from "node:fs";
+import { createWriteStream, existsSync } from "node:fs";
 import { cp, mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
@@ -58,10 +58,19 @@ async function download(url, dest) {
   await pipeline(Readable.fromWeb(res.body), createWriteStream(dest));
 }
 
+// On Windows, call the OS-bundled bsdtar by absolute path: a bare `tar` can
+// resolve to GNU tar (Git Bash / MSYS), which can't extract .zip and parses
+// `C:\...` as a remote `host:path`.
+const TAR =
+  process.platform === "win32" &&
+  existsSync(join(process.env.SystemRoot || "C:\\Windows", "System32", "tar.exe"))
+    ? join(process.env.SystemRoot || "C:\\Windows", "System32", "tar.exe")
+    : "tar";
+
 async function extractZip(zipPath, outDir) {
   // bsdtar (macOS + Windows `tar`) extracts .zip/.tar.bz2; avoids depending on `unzip`,
   // which isn't guaranteed on Windows CI runners.
-  execFileSync("tar", ["-xf", zipPath, "-C", outDir]);
+  execFileSync(TAR, ["-xf", zipPath, "-C", outDir]);
 }
 
 /** Recursively find files under `dir` matching a predicate. */
