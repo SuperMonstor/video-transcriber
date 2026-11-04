@@ -49,6 +49,7 @@ export type Progress =
   | { stage: "audio" }
   | { stage: "transcribe"; percent: number } // parsed from whisper -pp
   | { stage: "diarize" }
+  | { stage: "warning"; message: string } // non-fatal, e.g. speaker detection skipped
   | { stage: "normalize" }
   | { stage: "done"; transcript: Transcript }
   | { stage: "error"; message: string };

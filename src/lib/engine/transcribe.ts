@@ -3,12 +3,12 @@ import os from "node:os";
 import path from "node:path";
 
 import { extractAudio } from "./audio";
-import { diarizationAvailable, diarize, type DiarizeParams } from "./diarize";
+import { diarizationUnavailableReason, diarize, type DiarizeParams } from "./diarize";
 import { normalize, type WhisperFullJson } from "./normalize";
 import { resolveBinaries, resolveModelPath, resolveVadModel } from "./paths";
 import { probeDuration } from "./probe";
 import { assignSpeakers } from "./speakers";
-import type { ProgressFn, Transcript, TranscribeOptions } from "./types";
+import type { ProgressFn, SpeakerTurn, Transcript, TranscribeOptions } from "./types";
 import { runWhisper } from "./whisper";
 
 const noop: ProgressFn = () => {};
@@ -71,18 +71,36 @@ export async function transcribe(
       embeddingModelPath: options.diarizationEmbeddingModelPath,
       speakerCount: options.speakerCount,
     };
-    const speakerTurns =
-      options.detectSpeakers && diarizationAvailable(diarizeParams)
-        ? await (async () => {
-            onProgress({ stage: "diarize" });
-            try {
-              return await diarize(diarizeParams, signal);
-            } catch {
-              // Diarization is optional. Keep the fast-path transcript if sherpa fails.
-              return [];
-            }
-          })()
-        : [];
+    // Diarization is optional: on any failure keep the plain transcript, but
+    // tell the caller why speakers are missing instead of failing silently.
+    let speakerTurns: SpeakerTurn[] = [];
+    if (options.detectSpeakers) {
+      const unavailable = diarizationUnavailableReason(diarizeParams);
+      if (unavailable) {
+        onProgress({ stage: "warning", message: `Speaker detection skipped: ${unavailable}.` });
+      } else {
+        onProgress({ stage: "diarize" });
+        try {
+          speakerTurns = await diarize(diarizeParams, signal);
+          if (!speakerTurns.length) {
+            onProgress({
+              stage: "warning",
+              message: "Speaker detection ran but found no speaker turns.",
+            });
+          }
+        } catch (err) {
+          if (signal?.aborted) throw err;
+          // run() appends a stderr tail; keep the "exited with code" line + last stderr line.
+          const lines = (err instanceof Error ? err.message : String(err))
+            .split(/\r?\n/)
+            .map((l) => l.trim())
+            .filter(Boolean);
+          const reason =
+            lines.length > 1 ? `${lines[0]} ${lines[lines.length - 1]}` : (lines[0] ?? "unknown error");
+          onProgress({ stage: "warning", message: `Speaker detection failed: ${reason}` });
+        }
+      }
+    }
 
     onProgress({ stage: "normalize" });
     const raw = JSON.parse(await fs.readFile(jsonPath, "utf8")) as WhisperFullJson;

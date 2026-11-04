@@ -26,6 +26,7 @@ export function App(): JSX.Element {
   const [percent, setPercent] = useState(0);
   const [transcript, setTranscript] = useState<Transcript | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [warnings, setWarnings] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
   const [savedTo, setSavedTo] = useState<string | null>(null);
 
@@ -49,6 +50,9 @@ export function App(): JSX.Element {
           setError(msg.message);
           setStatus("error");
           break;
+        case "warning":
+          setWarnings((w) => [...w, msg.message]);
+          break;
         default:
           setStage(STAGE_LABEL[msg.stage] ?? msg.stage);
           setPercent(0);
@@ -67,6 +71,7 @@ export function App(): JSX.Element {
   const reset = () => {
     setTranscript(null);
     setError(null);
+    setWarnings([]);
     setCopied(false);
     setSavedTo(null);
     setPercent(0);
@@ -183,6 +188,14 @@ export function App(): JSX.Element {
       )}
 
       {status === "error" && <div className="error">{error}</div>}
+
+      {warnings.length > 0 && status !== "idle" && (
+        <div className="warning">
+          {warnings.map((w, i) => (
+            <p key={i}>{w}</p>
+          ))}
+        </div>
+      )}
 
       {transcript && status === "done" && (
         <section className="result">

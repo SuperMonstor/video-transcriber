@@ -59,8 +59,11 @@ export function registerIpc(): void {
         send({ stage: "setup" });
         try {
           await ensureDiarizationAssets(() => {});
-        } catch {
-          // Optional; transcribe will fall back if speaker assets are still absent.
+        } catch (err) {
+          // Optional; transcribe still runs, just without speakers. Surface why.
+          const reason = err instanceof Error ? err.message : String(err);
+          console.warn("[speakers] model download failed:", reason);
+          send({ stage: "warning", message: `Couldn't download speaker models: ${reason}` });
         }
         options = buildOptions();
       }

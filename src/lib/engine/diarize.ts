@@ -13,14 +13,24 @@ export type DiarizeParams = {
 
 const TURN_RE = /^\s*(\d+(?:\.\d+)?)\s+--\s+(\d+(?:\.\d+)?)\s+(\S+)\s*$/;
 
+/** Why diarization can't run, or null if everything it needs is present. */
+export function diarizationUnavailableReason(p: DiarizeParams): string | null {
+  if (!p.sherpaDiarize) return "the sherpa-onnx diarization binary is not configured";
+  // A bare command name is resolved via PATH at spawn time; only check real paths.
+  if (/[\\/]/.test(p.sherpaDiarize) && !existsSync(p.sherpaDiarize)) {
+    return `the diarization binary was not found at ${p.sherpaDiarize}`;
+  }
+  if (!p.segmentationModelPath || !existsSync(p.segmentationModelPath)) {
+    return "the speaker segmentation model is missing";
+  }
+  if (!p.embeddingModelPath || !existsSync(p.embeddingModelPath)) {
+    return "the speaker embedding model is missing";
+  }
+  return null;
+}
+
 export function diarizationAvailable(p: DiarizeParams): boolean {
-  return Boolean(
-    p.sherpaDiarize &&
-      p.segmentationModelPath &&
-      p.embeddingModelPath &&
-      existsSync(p.segmentationModelPath) &&
-      existsSync(p.embeddingModelPath),
-  );
+  return diarizationUnavailableReason(p) === null;
 }
 
 export function parseSpeakerTurn(line: string): SpeakerTurn | null {
