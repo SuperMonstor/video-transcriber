@@ -48,14 +48,14 @@ const ASSETS = {
   "sherpa-segmentation": {
     file: "sherpa-onnx-pyannote-segmentation-3-0/model.int8.onnx",
     url: "https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-segmentation-models/sherpa-onnx-pyannote-segmentation-3-0.tar.bz2",
-    bytes: 6_958_791,
+    bytes: 6_958_444,
     required: false,
     archive: "tar.bz2",
   },
   "sherpa-embedding": {
     file: "nemo_en_titanet_small.onnx",
     url: "https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-recongition-models/nemo_en_titanet_small.onnx",
-    bytes: 40_282_678,
+    bytes: 40_257_283,
     required: false,
   },
 } satisfies Record<string, Asset>;
