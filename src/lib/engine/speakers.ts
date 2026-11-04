@@ -46,6 +46,27 @@ function speakerForSegment(segment: Segment, words: Word[], turns: SpeakerTurn[]
   return best ?? bestSpeakerForRange(segment.start, segment.end, turns);
 }
 
+/**
+ * Apply user-chosen display names to speaker labels (raw label → name), on
+ * segments and words alike. Labels without a name are left as-is; mapping two
+ * labels to the same name effectively merges them. Pure — returns a new transcript.
+ */
+export function renameSpeakers(
+  transcript: Transcript,
+  names: Readonly<Record<string, string>>,
+): Transcript {
+  if (!Object.keys(names).length) return transcript;
+  const rename = <T extends { speaker?: string }>(item: T): T =>
+    item.speaker && Object.hasOwn(names, item.speaker)
+      ? { ...item, speaker: names[item.speaker] }
+      : item;
+  return {
+    ...transcript,
+    segments: transcript.segments.map(rename),
+    words: transcript.words.map(rename),
+  };
+}
+
 export function assignSpeakers(transcript: Transcript, turns: SpeakerTurn[]): Transcript {
   if (!turns.length) return transcript;
 

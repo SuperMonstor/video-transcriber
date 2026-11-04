@@ -1,9 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { renameSpeakers } from "../../lib/engine/speakers";
 import type { ModelName, Transcript } from "../../lib/engine/types";
 import { render, toChatGPT } from "../../lib/format";
 import { hms } from "../../lib/format/time";
 import type { ProgressMsg } from "../../shared/ipc";
+import { ConfirmDialog } from "./ConfirmDialog";
+
+const MAX_SPEAKER_NAME = 40;
 
 type Status = "idle" | "running" | "done" | "error";
 
@@ -30,7 +34,55 @@ export function App(): JSX.Element {
   const [copied, setCopied] = useState(false);
   const [savedTo, setSavedTo] = useState<string | null>(null);
 
+  // Speaker renaming: raw diarization label (e.g. "speaker_00") → display name.
+  const [speakerNames, setSpeakerNames] = useState<Record<string, string>>({});
+  // The tag being edited: which row's tag shows the input, and which label it renames.
+  const [editing, setEditing] = useState<{ segmentId: number; speaker: string } | null>(null);
+  const [draft, setDraft] = useState("");
+  const [confirmReset, setConfirmReset] = useState(false);
+  // Mirrors `editing` synchronously so Escape followed by the input's blur can't commit.
+  const editingRef = useRef<{ segmentId: number; speaker: string } | null>(null);
+
   const jobId = useRef<string | null>(null);
+
+  // What exports see: the transcript with display names applied.
+  const named = useMemo(
+    () => (transcript ? renameSpeakers(transcript, speakerNames) : null),
+    [transcript, speakerNames],
+  );
+  const renames = Object.entries(speakerNames);
+  const hasSpeakers = transcript?.segments.some((s) => s.speaker) ?? false;
+
+  const startRename = (segmentId: number, speaker: string): void => {
+    editingRef.current = { segmentId, speaker };
+    setEditing({ segmentId, speaker });
+    setDraft(speakerNames[speaker] ?? speaker);
+  };
+
+  const cancelRename = (): void => {
+    editingRef.current = null;
+    setEditing(null);
+  };
+
+  const commitRename = (): void => {
+    const target = editingRef.current;
+    if (!target) return;
+    cancelRename();
+    const name = draft.trim().slice(0, MAX_SPEAKER_NAME);
+    setSpeakerNames((prev) => {
+      const next = { ...prev };
+      // Empty, or back to the original label → drop the rename for this speaker.
+      if (!name || name === target.speaker) delete next[target.speaker];
+      else next[target.speaker] = name;
+      return next;
+    });
+  };
+
+  const closeResetDialog = useCallback(() => setConfirmReset(false), []);
+  const resetNames = useCallback(() => {
+    setSpeakerNames({});
+    setConfirmReset(false);
+  }, []);
 
   // Route progress events for the active job into UI state.
   useEffect(() => {
@@ -72,6 +124,9 @@ export function App(): JSX.Element {
     setTranscript(null);
     setError(null);
     setWarnings([]);
+    setSpeakerNames({});
+    cancelRename();
+    setConfirmReset(false);
     setCopied(false);
     setSavedTo(null);
     setPercent(0);
@@ -99,23 +154,20 @@ export function App(): JSX.Element {
   }, []);
 
   const copyChatGPT = useCallback(async () => {
-    if (!transcript) return;
-    await navigator.clipboard.writeText(toChatGPT(transcript));
+    if (!named) return;
+    await navigator.clipboard.writeText(toChatGPT(named));
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
-  }, [transcript]);
+  }, [named]);
 
   const saveAs = useCallback(
     async (format: "srt" | "json") => {
-      if (!transcript) return;
-      const base = transcript.source.replace(/\.[^.]+$/, "");
-      const path = await window.transcriber.save(
-        render(transcript, format),
-        `${base}.${format}`,
-      );
+      if (!named) return;
+      const base = named.source.replace(/\.[^.]+$/, "");
+      const path = await window.transcriber.save(render(named, format), `${base}.${format}`);
       if (path) setSavedTo(path);
     },
-    [transcript],
+    [named],
   );
 
   return (
@@ -202,8 +254,12 @@ export function App(): JSX.Element {
           <div className="result-head">
             <span className="muted">
               {transcript.segments.length} segments · {hms(transcript.duration)} · {transcript.model}
+              {hasSpeakers && " · click a speaker tag to rename"}
             </span>
             <div className="exports">
+              {renames.length > 0 && (
+                <button onClick={() => setConfirmReset(true)}>Reset names</button>
+              )}
               <button onClick={copyChatGPT}>{copied ? "Copied!" : "Copy for ChatGPT"}</button>
               <button onClick={() => saveAs("srt")}>Save .srt</button>
               <button onClick={() => saveAs("json")}>Save .json</button>
@@ -214,12 +270,63 @@ export function App(): JSX.Element {
             {transcript.segments.map((s) => (
               <li key={s.id}>
                 <span className="ts">{hms(s.start)}</span>
-                {s.speaker && <span className="speaker">{s.speaker}</span>}
+                {s.speaker &&
+                  (editing?.segmentId === s.id ? (
+                    <input
+                      className="speaker-input"
+                      autoFocus
+                      value={draft}
+                      maxLength={MAX_SPEAKER_NAME}
+                      size={Math.max(8, draft.length + 1)}
+                      aria-label={`Rename ${s.speaker}`}
+                      onFocus={(e) => e.target.select()}
+                      onChange={(e) => setDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") commitRename();
+                        else if (e.key === "Escape") cancelRename();
+                      }}
+                      onBlur={commitRename}
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      className={`speaker${speakerNames[s.speaker] ? " renamed" : ""}`}
+                      title={
+                        speakerNames[s.speaker]
+                          ? `${s.speaker} — click to rename`
+                          : "Click to rename this speaker"
+                      }
+                      onClick={() => startRename(s.id, s.speaker!)}
+                    >
+                      {speakerNames[s.speaker] ?? s.speaker}
+                    </button>
+                  ))}
                 <span>{s.text}</span>
               </li>
             ))}
           </ol>
         </section>
+      )}
+
+      {confirmReset && (
+        <ConfirmDialog
+          title="Reset speaker names?"
+          confirmLabel="Reset names"
+          onConfirm={resetNames}
+          onCancel={closeResetDialog}
+        >
+          <p>
+            {renames.length === 1 ? "This rename" : `These ${renames.length} renames`} will be
+            undone, and the transcript and exports will go back to the original labels:
+          </p>
+          <ul className="rename-list">
+            {renames.map(([raw, name]) => (
+              <li key={raw}>
+                <strong>{name}</strong> → {raw}
+              </li>
+            ))}
+          </ul>
+        </ConfirmDialog>
       )}
     </main>
   );
