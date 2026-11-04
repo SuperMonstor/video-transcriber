@@ -35,8 +35,10 @@ const MANIFEST = {
       pickExt: ["dll"],
     },
     {
-      // BtbN static (non-shared) ffmpeg — no external DLLs. Pinned to the 7.1 line.
-      url: "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n7.1-latest-win64-gpl-7.1.zip",
+      // BtbN static (non-shared) ffmpeg — no external DLLs. Pinned to the newest
+      // release line, 9.0. BtbN's `latest` release only carries recent lines, so an
+      // old line eventually 404s (n7.1 did) — bump this when that happens.
+      url: "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n9.0-latest-win64-gpl-9.0.zip",
       pick: ["ffmpeg.exe", "ffprobe.exe"],
     },
     {
