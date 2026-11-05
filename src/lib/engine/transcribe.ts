@@ -48,7 +48,7 @@ export async function transcribe(
     await extractAudio(binaries.ffmpeg, videoPath, audioPath, signal);
 
     onProgress({ stage: "transcribe", percent: 0 });
-    const jsonPath = await runWhisper(
+    const whisper = await runWhisper(
       {
         whisperCli: binaries.whisperCli,
         modelPath,
@@ -103,8 +103,12 @@ export async function transcribe(
     }
 
     onProgress({ stage: "normalize" });
-    const raw = JSON.parse(await fs.readFile(jsonPath, "utf8")) as WhisperFullJson;
-    let transcript = normalize(raw, { source: path.basename(videoPath), model });
+    const raw = JSON.parse(await fs.readFile(whisper.jsonPath, "utf8")) as WhisperFullJson;
+    let transcript = normalize(raw, {
+      source: path.basename(videoPath),
+      model,
+      vadSegments: whisper.vadSegments,
+    });
     // whisper's own end time is authoritative, but fall back to ffprobe.
     if (!transcript.duration && duration) transcript.duration = duration;
     if (options.detectSpeakers) {

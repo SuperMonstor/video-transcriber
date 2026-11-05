@@ -16,19 +16,26 @@ export function run(
     const child = spawn(cmd, args, { signal: opts.signal });
     let stderrTail = "";
 
+    // Chunks can end mid-line; hold the partial tail until the next chunk.
+    const partial = { out: "", err: "" };
+    const emit = (stream: "out" | "err", lines: string[]) => {
+      for (const line of lines) if (line.trim()) opts.onLine?.(line, stream);
+    };
     const pump = (stream: "out" | "err") => (buf: Buffer) => {
       const text = buf.toString();
       if (stream === "err") stderrTail = (stderrTail + text).slice(-2000);
       if (!opts.onLine) return;
-      for (const line of text.split(/\r?\n|\r/)) {
-        if (line.trim()) opts.onLine(line, stream);
-      }
+      const lines = (partial[stream] + text).split(/\r?\n|\r/);
+      partial[stream] = lines.pop() ?? "";
+      emit(stream, lines);
     };
 
     child.stdout?.on("data", pump("out"));
     child.stderr?.on("data", pump("err"));
     child.on("error", reject);
-    child.on("close", (code) =>
+    child.on("close", (code) => {
+      emit("out", [partial.out]);
+      emit("err", [partial.err]);
       code === 0
         ? resolve()
         : reject(
@@ -36,7 +43,7 @@ export function run(
               `${cmd} exited with code ${code}` +
                 (stderrTail.trim() ? `:\n${stderrTail.trim()}` : ""),
             ),
-          ),
-    );
+          );
+    });
   });
 }

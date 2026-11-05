@@ -2,7 +2,13 @@
 
 export type ModelName = "large-v3-turbo" | "medium";
 
-export type Word = { start: number; end: number; text: string; speaker?: string };
+export type Word = {
+  start: number;
+  end: number;
+  text: string;
+  speaker?: string;
+  segment?: number; // id of the Segment this word came from
+};
 export type Segment = { id: number; start: number; end: number; text: string; speaker?: string };
 export type SpeakerTurn = { start: number; end: number; speaker: string };
 
