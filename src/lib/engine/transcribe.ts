@@ -8,10 +8,17 @@ import { normalize, type WhisperFullJson } from "./normalize";
 import { resolveBinaries, resolveModelPath, resolveVadModel } from "./paths";
 import { probeDuration } from "./probe";
 import { assignSpeakers } from "./speakers";
-import type { ProgressFn, SpeakerTurn, Transcript, TranscribeOptions } from "./types";
+import type { ModelName, ProgressFn, SpeakerTurn, Transcript, TranscribeOptions } from "./types";
 import { runWhisper } from "./whisper";
 
 const noop: ProgressFn = () => {};
+
+// whisper.cpp alignment-head presets for DTW word timestamps. Only turbo:
+// the app currently serves "medium" with turbo weights (model-manager), and a
+// preset that doesn't match the loaded weights would align the wrong heads.
+const DTW_PRESETS: Partial<Record<ModelName, string>> = {
+  "large-v3-turbo": "large.v3.turbo",
+};
 
 /**
  * Transcribe a video: ffprobe → ffmpeg (audio) → whisper-cli → normalized
@@ -59,6 +66,9 @@ export async function transcribe(
         threads,
         vadModelPath,
         initialPrompt: options.initialPrompt,
+        // Speaker detection matches words to speaker turns, so it needs
+        // tighter word timing; costs ~30% more whisper time.
+        dtwPreset: options.detectSpeakers ? DTW_PRESETS[model] : undefined,
       },
       (percent) => onProgress({ stage: "transcribe", percent }),
       signal,

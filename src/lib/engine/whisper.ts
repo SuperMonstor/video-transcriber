@@ -11,6 +11,8 @@ export type WhisperParams = {
   threads: number;
   vadModelPath: string | null;
   initialPrompt?: string;
+  /** whisper.cpp DTW preset (e.g. "large.v3.turbo") for more accurate word timestamps. */
+  dtwPreset?: string;
 };
 
 export type WhisperResult = {
@@ -49,6 +51,10 @@ export async function runWhisper(
   ];
   if (p.vadModelPath) {
     args.push("--vad", "--vad-model", p.vadModelPath);
+  }
+  if (p.dtwPreset) {
+    // whisper.cpp silently disables DTW when flash attention is on.
+    args.push("-nfa", "-dtw", p.dtwPreset);
   }
   if (p.initialPrompt) {
     args.push("--prompt", p.initialPrompt);
