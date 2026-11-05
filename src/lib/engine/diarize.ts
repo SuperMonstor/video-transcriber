@@ -9,7 +9,14 @@ export type DiarizeParams = {
   segmentationModelPath?: string | null;
   embeddingModelPath?: string | null;
   speakerCount?: number;
+  threads?: number;
 };
+
+// Distance threshold for clustering when the speaker count is unknown. Tuned
+// for wespeaker_en_voxceleb_resnet34_LM with scripts/eval-diarization.ts
+// (accuracy plateau 0.35–0.6; exact speaker counts at 0.45–0.5). Each
+// embedding model has its own scale — re-tune if the model changes.
+const CLUSTER_THRESHOLD = 0.5;
 
 const TURN_RE = /^\s*(\d+(?:\.\d+)?)\s+--\s+(\d+(?:\.\d+)?)\s+(\S+)\s*$/;
 
@@ -50,15 +57,19 @@ export async function diarize(
 ): Promise<SpeakerTurn[]> {
   if (!diarizationAvailable(p)) return [];
 
+  const threads = String(Math.max(1, p.threads ?? 1));
   const args = [
     `--segmentation.pyannote-model=${p.segmentationModelPath!}`,
     `--embedding.model=${p.embeddingModelPath!}`,
+    // sherpa defaults to one thread; 8 threads is ~5x faster.
+    `--segmentation.num-threads=${threads}`,
+    `--embedding.num-threads=${threads}`,
   ];
 
   if (p.speakerCount && p.speakerCount > 0) {
     args.push(`--clustering.num-clusters=${p.speakerCount}`);
   } else {
-    args.push("--clustering.cluster-threshold=0.9");
+    args.push(`--clustering.cluster-threshold=${CLUSTER_THRESHOLD}`);
   }
 
   args.push(p.audioPath);

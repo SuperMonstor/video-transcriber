@@ -80,6 +80,7 @@ export async function transcribe(
       segmentationModelPath: options.diarizationSegmentationModelPath,
       embeddingModelPath: options.diarizationEmbeddingModelPath,
       speakerCount: options.speakerCount,
+      threads,
     };
     // Diarization is optional: on any failure keep the plain transcript, but
     // tell the caller why speakers are missing instead of failing silently.

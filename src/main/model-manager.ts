@@ -46,16 +46,20 @@ const ASSETS = {
     required: false, // best-effort; VAD just stays off if it can't be fetched
   },
   "sherpa-segmentation": {
-    file: "sherpa-onnx-pyannote-segmentation-3-0/model.int8.onnx",
+    // The archive ships int8 and fp32 builds; int8 misses quiet speech (an
+    // off-mic audience question) that fp32 catches. Both are extracted.
+    file: "sherpa-onnx-pyannote-segmentation-3-0/model.onnx",
     url: "https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-segmentation-models/sherpa-onnx-pyannote-segmentation-3-0.tar.bz2",
     bytes: 6_958_444,
     required: false,
     archive: "tar.bz2",
   },
   "sherpa-embedding": {
-    file: "nemo_en_titanet_small.onnx",
-    url: "https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-recongition-models/nemo_en_titanet_small.onnx",
-    bytes: 40_257_283,
+    // Chosen with scripts/eval-diarization.ts: same word accuracy as
+    // titanet_small/large but gets the speaker count right, and smaller.
+    file: "wespeaker_en_voxceleb_resnet34_LM.onnx",
+    url: "https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-recongition-models/wespeaker_en_voxceleb_resnet34_LM.onnx",
+    bytes: 26_530_550,
     required: false,
   },
 } satisfies Record<string, Asset>;

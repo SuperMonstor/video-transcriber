@@ -25,8 +25,8 @@ The sherpa ONNX model files are resolved from the app model directory, not from
 `resources/bin`:
 
 ```
-models/sherpa-onnx-pyannote-segmentation-3-0/model.int8.onnx
-models/nemo_en_titanet_small.onnx
+models/sherpa-onnx-pyannote-segmentation-3-0/model.onnx
+models/wespeaker_en_voxceleb_resnet34_LM.onnx
 ```
 
 For local development, override these with `SHERPA_ONNX_DIARIZE`,
@@ -46,8 +46,8 @@ For local development, override these with `SHERPA_ONNX_DIARIZE`,
   GTX 1650's GPU.
 - **sherpa-onnx diarization** — use the prebuilt
   `sherpa-onnx-offline-speaker-diarization` CLI for each platform, plus the
-  `sherpa-onnx-pyannote-segmentation-3-0` int8 segmentation model and
-  `nemo_en_titanet_small.onnx` speaker embedding model. Diarization is optional:
+  `sherpa-onnx-pyannote-segmentation-3-0` segmentation model (fp32, not int8)
+  and `wespeaker_en_voxceleb_resnet34_LM.onnx` speaker embedding model. Diarization is optional:
   if the binary or either model is missing, the app falls back to normal
   transcription.
 
